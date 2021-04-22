@@ -1,23 +1,31 @@
 import os
-from sqlalchemy import Column, String, Integer
+from decouple import config
+from sqlalchemy import Column, String, Integer, JSON
 from flask_sqlalchemy import SQLAlchemy
+from flask import Flask
+from flask_migrate import Migrate
 import json
 
-database_filename = "database.db"
-project_dir = os.path.dirname(os.path.abspath(__file__))
-database_path = "sqlite:///{}".format(os.path.join(project_dir, database_filename))
+DB_HOST = config('DB_HOST')
+DB_USER = config('DB_USER')
+DB_PASSWORD = config('DB_PASSWORD')
+DB_NAME = config('DB_NAME')
+database_path = 'postgresql+psycopg2://{}:{}@{}/{}'.format(DB_USER, DB_PASSWORD, DB_HOST, DB_NAME)
 
+app = Flask(__name__)
 db = SQLAlchemy()
+migrate = Migrate(app, db)
 
 '''
 setup_db(app)
     binds a flask application and a SQLAlchemy service
 '''
-def setup_db(app):
+def setup_db(app, database_path=database_path):
     app.config["SQLALCHEMY_DATABASE_URI"] = database_path
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.app = app
     db.init_app(app)
+    db.create_all()
 
 '''
 db_drop_and_create_all()
@@ -25,9 +33,9 @@ db_drop_and_create_all()
     can be used to initialize a clean database
     !!NOTE you can change the database_filename variable to have multiple verisons of a database
 '''
-def db_drop_and_create_all():
-    db.drop_all()
-    db.create_all()
+# def db_drop_and_create_all():
+#     db.drop_all()
+#     db.create_all()
 
 '''
 Drink
@@ -40,7 +48,7 @@ class Drink(db.Model):
     title = Column(String(80), unique=True)
     # the ingredients blob - this stores a lazy json blob
     # the required datatype is [{'color': string, 'name':string, 'parts':number}]
-    recipe =  Column(String(180), nullable=False)
+    recipe =  Column(JSON)
 
     '''
     short()

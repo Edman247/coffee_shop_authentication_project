@@ -21,11 +21,7 @@ def create_app(test_config=None):
             'Access-Control-Allow-Methods',
             'GET, POST, PATCH, PUT, DELETE')
         return response
-    '''
-    @TODO uncomment the following line to initialize the datbase
-    !! NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
-    !! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
-    '''
+
 
 
     ## ROUTES
@@ -37,52 +33,22 @@ def create_app(test_config=None):
         returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
             or appropriate status code indicating reason for failure
     '''
-    @app.route('/drinks', methods=['GET', 'POST'])
+
+    @app.route('/drinks', methods=['GET'])
     def drinks():
-        if request.method == 'GET':
-            try:
-                coffee_drinks = Drink.query.all()
-                drinks = []
-                for drink in coffee_drinks:
-                    drinks.append(drink.short())
-                print(drinks)
-                return jsonify({
-                    "success": True,
-                    "drinks": drinks
-                })
-            except BaseException:
-                abort(404)
-        else:
-            body = request.get_json()
-            title = body.get('title')
-            recipe = body.get('recipe')
+        try:
+            coffee_drinks = Drink.query.all()
+            drinks = []
+            for drink in coffee_drinks:
+                print(drink.short())
+                drinks.append(drink.short())
 
-            try:
-                new_drink = Drink(
-                    title = title,
-                    recipe = recipe
-                )
-                new_drink.insert()
-                return jsonify({
-                    'success': True
-                })
-
-            except BaseException:
-                abort(404)
-                db.session.rollback()
-
-            finally:
-                db.session.close()
-
-    '''
-    @TODO implement endpoint
-        GET /drinks-detail
-            it should require the 'get:drinks-detail' permission
-            it should contain the drink.long() data representation
-        returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
-            or appropriate status code indicating reason for failure
-    '''
-
+            return jsonify({
+                "success": True,
+                "drinks": drinks
+            })
+        except:
+            abort(404)
 
     '''
     @TODO implement endpoint
@@ -93,6 +59,59 @@ def create_app(test_config=None):
         returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the newly created drink
             or appropriate status code indicating reason for failure
     '''
+    @app.route('/drinks', methods = ['POST'])
+    @requires_auth('post:drinks')
+    def post_drinks(AuthToken):
+        try:
+            body = request.get_json()
+            title = body.get('title')
+            recipe = body.get('recipe')
+            print(title, recipe)
+            new_drink = Drink(
+                title = title,
+                recipe = recipe
+            )
+            new_drink.insert()
+            coffee_drinks = Drink.query.all()
+            drinks = []
+            for drink in coffee_drinks:
+                print(drink.short())
+                drinks.append(drink.long())
+            return jsonify({
+                'success': True,
+                'drinks': drinks
+            })
+
+        except:
+            abort(422)
+            db.session.rollback()
+
+        finally:
+            db.session.close()
+
+    '''
+    @TODO implement endpoint
+        GET /drinks-detail
+            it should require the 'get:drinks-detail' permission
+            it should contain the drink.long() data representation
+        returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
+            or appropriate status code indicating reason for failure
+    '''
+    @app.route('/drinks-detail', methods = ['GET'])
+    @requires_auth('get:drinks-detail')
+    def drink_details(AuthToken):
+        try:
+            coffee_drinks = Drink.query.all()
+            drinks = []
+            for drink in coffee_drinks:
+                drinks.append(drink.long())
+            return jsonify({
+                "success": True,
+                "drinks": drinks
+            })
+        except BaseException:
+            abort(404)
+
 
     '''
     @TODO implement endpoint
@@ -105,7 +124,34 @@ def create_app(test_config=None):
         returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
             or appropriate status code indicating reason for failure
     '''
-
+    @app.route('/drinks/<int:id>', methods = ['PATCH'])
+    @requires_auth('patch:drinks')
+    def patch_drinks(AuthToken, id):
+        drink = Drink.query.get(id)
+        if drink:
+            try:
+                body = request.get_json()
+                if body.get('title'):
+                    title = body.get('title')
+                    drink.title = title
+                if body.get('recipe'):
+                    recipe = body.get('recipe')
+                    drink.recipe = recipe
+                drink.update()
+                print(drink)
+                coffee_drinks = Drink.query.all()
+                drinks = []
+                for drink in coffee_drinks:
+                    drinks.append(drink.long())
+                return jsonify({
+                    "success": True,
+                    "drinks": drinks
+                })
+            except:
+                abort(404)
+                db.session.rollback
+            finally:
+                db.session.close()
 
     '''
     @TODO implement endpoint
@@ -118,11 +164,28 @@ def create_app(test_config=None):
             or appropriate status code indicating reason for failure
     '''
 
+    @app.route('/drinks/<int:id>', methods = ['DELETE'])
+    @requires_auth('delete:drinks')
+    def delete_drinks(AuthToken, id):
+        drink = Drink.query.get(id)
+        if drink:
+            try:
+                drink.delete()
+                db.session.commit()
+                return jsonify({
+                    "success": True,
+                    "drinks": id
+                })
+            except:
+                abort(404)
+                db.session.rollback
+            finally:
+                db.session.close()
+        else:
+            abort(404)
 
     ## Error Handling
-    '''
-    Example error handling for unprocessable entity
-    '''
+
     @app.errorhandler(422)
     def unprocessable(error):
         return jsonify({
@@ -130,6 +193,54 @@ def create_app(test_config=None):
                         "error": 422,
                         "message": "unprocessable"
                         }), 422
+
+    @app.errorhandler(400)
+    def bad_request(error):
+        return jsonify({
+            'success': False,
+            'error': 400,
+            'message': "bad request"
+        }), 400
+
+    @app.errorhandler(404)
+    def not_found(error):
+        return jsonify({
+            'success': False,
+            'error': 404,
+            'message': "resource not found"
+        }), 404
+
+    @app.errorhandler(401)
+    def not_found(error):
+        return jsonify({
+            'success': False,
+            'error': 401,
+            'message': "unauthorized"
+        }), 401
+
+    @app.errorhandler(405)
+    def not_allowed(error):
+        return jsonify({
+            'success': False,
+            'error': 405,
+            'message': "method not allowed"
+        }), 405
+
+    @app.errorhandler(403)
+    def fobidden(error):
+        return jsonify({
+            'success': False,
+            'error': 403,
+            'message': "You do not have permission to access resources"
+        }), 403
+
+    @app.errorhandler(500)
+    def server_error(error):
+        return jsonify({
+            'success': False,
+            'error': 500,
+            'message': "internal server error"
+        }), 500
 
     '''
     @TODO implement error handlers using the @app.errorhandler(error) decorator
@@ -152,5 +263,12 @@ def create_app(test_config=None):
     @TODO implement error handler for AuthError
         error handler should conform to general task above
     '''
-
+    @app.errorhandler(AuthError)
+    def auth_error(AuthError):
+        error = AuthError.error
+        status_code = AuthError.status_code
+        return jsonify({
+            'success': False,
+            'error': error,
+        }), status_code
     return app

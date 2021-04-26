@@ -69,6 +69,7 @@ export class AuthService {
   }
 
   logout() {
+    localStorage.removeItem(this.token);
     this.token = '';
     this.payload = null;
     this.set_jwt();

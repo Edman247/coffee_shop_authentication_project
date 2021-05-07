@@ -19,7 +19,9 @@ Once you have your virtual environment setup and running, install dependencies b
 ```bash
 pip install -r requirements.txt
 ```
-
+'''In addition to the required dependencies in the requirements.txt file
+the following module: 'config was also imported form decouple module to handle env variables'
+'''
 This will install all of the required packages we selected within the `requirements.txt` file.
 
 ##### Key Dependencies
